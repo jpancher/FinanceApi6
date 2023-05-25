@@ -1,5 +1,6 @@
 ﻿using financeAPI.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Oracle.ManagedDataAccess.Client;
@@ -8,10 +9,57 @@ using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 
 namespace financeAPI.Data
 {
+    public class DataContextFactory : IDesignTimeDbContextFactory<DataContext>
+    {
+        public DataContext CreateDbContext(string[] args)
+        {
+            var config = GetConfiguration();
+
+            var optionsBuilder = new DbContextOptionsBuilder<DataContext>();
+            string path = config["walletPath"];
+           
+            if (OracleConfiguration.TnsAdmin != path)
+            {
+                OracleConfiguration.TnsAdmin = path;
+                OracleConfiguration.WalletLocation = path;
+            }
+            var option = optionsBuilder.UseOracle(config["ASPNETCORE_ConString"]);
+            return new DataContext(optionsBuilder.Options, config);
+        }
+
+        IConfiguration GetConfiguration()
+        {
+            var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+
+            var dir = Directory.GetParent(AppContext.BaseDirectory);
+            do
+                dir = dir.Parent;
+            while (dir.Name != "bin");
+            dir = dir.Parent;
+            var path = dir.FullName;
+            
+            var builder = new ConfigurationBuilder()
+                    .SetBasePath(path)
+                    .AddJsonFile($"appsettings.{environmentName}.json", true)
+                    .AddUserSecrets("660fed9a-7275-44dc-9452-b13a29eee6f2")
+                    .AddEnvironmentVariables();
+            return builder.Build();
+        }
+    }
+
     public class DataContext:DbContext
     {
         private readonly IConfiguration _config;
         private readonly DbContextOptions<DataContext> _options;
+
+        public DataContext()
+        {
+        }
+
+        public DataContext(DbContextOptions<DataContext> options) : base(options)
+        {
+            _options = options;
+        }
 
         public DataContext(DbContextOptions<DataContext> options, IConfiguration config) : base(options)
         {
@@ -22,23 +70,18 @@ namespace financeAPI.Data
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-
-            if (OracleConfiguration.TnsAdmin != Environment.GetEnvironmentVariable("ASPNETCORE_EnvWalletPath"))
+            if (Environment.GetEnvironmentVariable("ASPNETCORE_TNSName") != null)
             {
-                // Set TnsAdmin value to directory location of tnsnames.ora and sqlnet.ora files           
-                OracleConfiguration.TnsAdmin = Environment.GetEnvironmentVariable("ASPNETCORE_EnvWalletPath");
-
-                //if (OracleConfiguration.WalletLocation == null)
-                // Set WalletLocation value to directory location of the ADB wallet (i.e. cwallet.sso)
-                OracleConfiguration.WalletLocation = Environment.GetEnvironmentVariable("ASPNETCORE_EnvWalletPath");
+                OracleConfiguration.OracleDataSources.Add(Environment.GetEnvironmentVariable("ASPNETCORE_TNSName"), Environment.GetEnvironmentVariable("ASPNETCORE_TNSConnectionString"));
+                var option = optionsBuilder.UseOracle(Environment.GetEnvironmentVariable("ASPNETCORE_ConString"));
+                base.OnConfiguring(option);
             }
-
-            optionsBuilder.EnableSensitiveDataLogging();
-            var option = optionsBuilder.UseOracle(Environment.GetEnvironmentVariable("ASPNETCORE_ConString"));
-            //_config["sbtdb:ConnectionString"]);
-
-            base.OnConfiguring(option);
-
+            else if (_config["ASPNETCORE_ConString"]!=null)
+            {
+                OracleConfiguration.OracleDataSources.Add(_config["ASPNETCORE_TNSName"], _config["ASPNETCORE_TNSConnectionString"]);
+                var option = optionsBuilder.UseOracle(_config["ASPNETCORE_ConString"]);
+                base.OnConfiguring(option);
+            }
         }
 
         public DbSet<TransactionType> TransactionType { get; set; }
