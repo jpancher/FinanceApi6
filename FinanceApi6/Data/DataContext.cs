@@ -70,16 +70,37 @@ namespace financeAPI.Data
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            if (Environment.GetEnvironmentVariable("ASPNETCORE_TNSName") != null)
+            string conString = (Environment.GetEnvironmentVariable("ASPNETCORE_ConString")!=null) ?
+                Environment.GetEnvironmentVariable("ASPNETCORE_ConString") :
+                _config["ASPNETCORE_ConString"];
+
+            string path = (Environment.GetEnvironmentVariable("ASPNETCORE_EnvWalletPath") != null) ?
+                Environment.GetEnvironmentVariable("ASPNETCORE_EnvWalletPath") :
+                _config["ASPNETCORE_EnvWalletPath"];
+
+            string TNSName = (Environment.GetEnvironmentVariable("ASPNETCORE_TNSName")) != null ?
+                Environment.GetEnvironmentVariable("ASPNETCORE_TNSName") :
+                _config["ASPNETCORE_TNSName"];
+
+            string TNSConnectionString = (Environment.GetEnvironmentVariable("ASPNETCORE_TNSConnectionString")) != null ?
+                Environment.GetEnvironmentVariable("ASPNETCORE_TNSConnectionString") :
+                _config["ASPNETCORE_TNSConnectionString"];
+
+            if (path != null)
             {
-                OracleConfiguration.OracleDataSources.Add(Environment.GetEnvironmentVariable("ASPNETCORE_TNSName"), Environment.GetEnvironmentVariable("ASPNETCORE_TNSConnectionString"));
-                var option = optionsBuilder.UseOracle(Environment.GetEnvironmentVariable("ASPNETCORE_ConString"));
-                base.OnConfiguring(option);
+                if (OracleConfiguration.TnsAdmin != path)
+                {
+                    OracleConfiguration.TnsAdmin = path;
+                    OracleConfiguration.WalletLocation = path;
+                }
             }
-            else if (_config["ASPNETCORE_ConString"]!=null)
+            else if (TNSName != null)
             {
-                OracleConfiguration.OracleDataSources.Add(_config["ASPNETCORE_TNSName"], _config["ASPNETCORE_TNSConnectionString"]);
-                var option = optionsBuilder.UseOracle(_config["ASPNETCORE_ConString"]);
+                OracleConfiguration.OracleDataSources.Add(TNSName, TNSConnectionString);
+            }
+            if (conString != null)
+            {
+                var option = optionsBuilder.UseOracle(conString);
                 base.OnConfiguring(option);
             }
         }

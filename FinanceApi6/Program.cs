@@ -25,13 +25,22 @@ string conString = Environment.GetEnvironmentVariable("ASPNETCORE_ConString");
 
 if (conString != null)
 {
-    OracleConfiguration.OracleDataSources.Add(Environment.GetEnvironmentVariable("ASPNETCORE_TNSName"), Environment.GetEnvironmentVariable("ASPNETCORE_TNSConnectionString"));
+    if (Environment.GetEnvironmentVariable("ASPNETCORE_EnvWalletPath") != null)
+    {
+        string path = Environment.GetEnvironmentVariable("ASPNETCORE_EnvWalletPath");
+        if (OracleConfiguration.TnsAdmin != path)
+        {
+            OracleConfiguration.TnsAdmin = path;
+            OracleConfiguration.WalletLocation = path;
+        }
+    } else 
+        OracleConfiguration.OracleDataSources.Add(Environment.GetEnvironmentVariable("ASPNETCORE_TNSName"), Environment.GetEnvironmentVariable("ASPNETCORE_TNSConnectionString"));
 
     var option = new DbContextOptionsBuilder<DataContext>().UseOracle(conString).Options;
     using var db = new DataContext(option, builder.Configuration);
 
     //db.Database.EnsureCreated();
-    SeedData.SeedAll(db);
+    //SeedData.SeedAll(db);
 
     app.UseSwagger();
 
